@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario Monarca - Gestión de Inventario y Ventas</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="package-search" class="logo-icon"></i>
+                    <span>Inventario <span class="accent-text">Monarca</span></span>
+                </div>
+            </div>
+            <nav class="sidebar-menu">
+                <button class="menu-item active" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="menu-item" data-tab="productos">
+                    <i data-lucide="boxes"></i>
+                    <span>Productos</span>
+                </button>
+                <button class="menu-item" data-tab="ventas">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Registrar Venta</span>
+                </button>
+                <button class="menu-item" data-tab="historial">
+                    <i data-lucide="receipt"></i>
+                    <span>Historial</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="theme-toggle" class="theme-btn">
+                    <i data-lucide="sun" class="sun-icon"></i>
+                    <i data-lucide="moon" class="moon-icon"></i>
+                    <span>Cambiar Tema</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="content-header">
+                <div class="header-info">
+                    <h1 id="page-title">Dashboard</h1>
+                    <p id="page-subtitle" class="muted-text">Resumen del rendimiento de tu negocio hoy</p>
+                </div>
+                <div class="user-profile">
+                    <div class="avatar" id="owner-avatar">A</div>
+                    <div class="profile-details">
+                        <input type="text" id="owner-name" class="user-name-input" value="Administrador" title="Haz clic para editar el nombre">
+                        <span class="user-role">Propietario</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="tab-content active">
+                <div class="action-bar" style="justify-content: flex-end; margin-bottom: 1.5rem;">
+                    <div class="filter-actions">
+                        <span class="muted-text" style="font-weight: 500;">Período del Reporte:</span>
+                        <select id="dashboard-timeframe" class="form-control" style="width: 220px; padding: 0.5rem;">
+                            <option value="today">Hoy</option>
+                            <option value="week">Esta Semana</option>
+                            <option value="month" selected>Este Mes (Últimos 30 días)</option>
+                            <option value="all">Todo el Historial</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon income">
+                            <i data-lucide="dollar-sign"></i>
+                        </div>
+                        <div class="metric-details">
+                            <span class="metric-label">Ingresos Totales</span>
+                            <h2 class="metric-value" id="stat-ingresos">$0.00</h2>
+                            <span class="metric-trend up"><i data-lucide="trending-up"></i> Ventas brutas</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon sales">
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                        <div class="metric-details">
+                            <span class="metric-label">Ganancia Neta</span>
+                            <h2 class="metric-value" id="stat-ganancia">$0.00</h2>
+                            <span class="metric-trend up" id="stat-ganancia-margin">0% Margen prom.</span>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon inventory">
+                            <i data-lucide="shopping-bag"></i>
+                        </div>
+                        <div class="metric-details">
+                            <span class="metric-label">Ventas Realizadas</span>
+                            <h2 class="metric-value" id="stat-ventas">0</h2>
+                            <span class="metric-trend"><span id="stat-total-stock">0</span> uds en stock</span>
+                        </div>
+                    </div>
+                    <div class="metric-card" id="alert-card">
+                        <div class="metric-icon alerts">
+                            <i data-lucide="alert-triangle"></i>
+                        </div>
+                        <div class="metric-details">
+                            <span class="metric-label">Stock Crítico</span>
+                            <h2 class="metric-value" id="stat-alertas">0</h2>
+                            <span class="metric-trend down" id="alert-trend"><span id="stat-productos">0</span> productos</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts & Recent Activity Grid -->
+                <div class="dashboard-grid">
+                    <!-- Top Products Card -->
+                    <div class="dashboard-card main-card">
+                        <div class="card-header">
+                            <h3>Productos Más Vendidos</h3>
+                            <i data-lucide="award" class="header-icon"></i>
+                        </div>
+                        <div class="card-body">
+                            <div class="top-products-list" id="top-products-container">
+                                <!-- Dynamic items here -->
+                                <p class="muted-text text-center py-4">Registra ventas para ver estadísticas.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Sales Card -->
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>Ventas Recientes</h3>
+                            <button class="btn btn-sm btn-link" id="btn-dashboard-view-all">Ver todas</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Fecha</th>
+                                            <th>Artículos</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-sales-tbody">
+                                        <!-- Dynamic items here -->
+                                        <tr>
+                                            <td colspan="4" class="text-center muted-text py-4">No hay ventas registradas hoy.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Products Tab -->
+            <section id="tab-productos" class="tab-content">
+                <div class="action-bar">
+                    <div class="search-box">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="product-search" placeholder="Buscar por nombre o código...">
+                    </div>
+                    <div class="filter-actions">
+                        <select id="product-filter-stock" class="form-control">
+                            <option value="all">Todos los niveles de Stock</option>
+                            <option value="low">Stock Crítico (≤ 5)</option>
+                            <option value="out">Sin Stock (0)</option>
+                        </select>
+                        <button class="btn btn-primary" id="btn-add-product">
+                            <i data-lucide="plus"></i>
+                            <span>Nuevo Producto</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre / Descripción</th>
+                                    <th>Categoría</th>
+                                    <th>Costo / Precio</th>
+                                    <th>Margen</th>
+                                    <th>Stock Restante</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-tbody">
+                                <!-- Dynamic products will be rendered here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Sales Tab -->
+            <section id="tab-ventas" class="tab-content">
+                <div class="sales-workspace">
+                    <!-- Left: Cart Builder -->
+                    <div class="sales-builder dashboard-card">
+                        <div class="card-header">
+                            <h3>Carrito de Venta</h3>
+                            <button class="btn btn-sm btn-outline-danger" id="btn-clear-cart">
+                                <i data-lucide="trash-2"></i> Vaciar
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="cart-items-list" id="cart-items-container">
+                                <!-- Dynamic cart items -->
+                                <div class="empty-cart-message">
+                                    <i data-lucide="shopping-cart" class="empty-icon"></i>
+                                    <p>El carrito está vacío</p>
+                                    <span class="muted-text">Agrega productos desde el panel de la derecha</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cart-summary">
+                            <div class="summary-row">
+                                <span>Subtotal</span>
+                                <span id="cart-subtotal">$0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Impuesto (16%)</span>
+                                <span id="cart-tax">$0.00</span>
+                            </div>
+                            <div class="summary-row total-row">
+                                <span>Total a Pagar</span>
+                                <span id="cart-total">$0.00</span>
+                            </div>
+                            <div class="payment-method-sec">
+                                <label for="payment-method">Método de Pago</label>
+                                <select id="payment-method" class="form-control">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta de Crédito/Débito</option>
+                                    <option value="Transferencia">Transferencia Bancaria</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-success btn-lg btn-block" id="btn-complete-sale" disabled>
+                                <i data-lucide="check-circle-2"></i> Finalizar Venta
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Product Picker -->
+                    <div class="product-picker-panel">
+                        <div class="picker-search dashboard-card">
+                            <div class="search-box">
+                                <i data-lucide="search" class="search-icon"></i>
+                                <input type="text" id="sales-product-search" placeholder="Buscar productos para vender...">
+                            </div>
+                        </div>
+                        <div class="product-picker-grid" id="picker-grid-container">
+                            <!-- Dynamic product grid cards -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History Tab -->
+            <section id="tab-historial" class="tab-content">
+                <div class="action-bar">
+                    <div class="search-box">
+                        <i data-lucide="calendar" class="search-icon"></i>
+                        <input type="date" id="history-filter-date" placeholder="Filtrar por fecha">
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn btn-outline" id="btn-clear-date-filter">Ver Todo</button>
+                        <button class="btn btn-outline" id="btn-export-csv" title="Descargar reporte Excel/CSV">
+                            <i data-lucide="download"></i> CSV
+                        </button>
+                        <button class="btn btn-outline" id="btn-backup-data" title="Descargar copia de seguridad (.json)">
+                            <i data-lucide="database"></i> Respaldar
+                        </button>
+                        <button class="btn btn-outline" id="btn-restore-data" title="Restaurar base de datos (.json)">
+                            <i data-lucide="upload-cloud"></i> Restaurar
+                        </button>
+                        <input type="file" id="restore-file-input" style="display:none;" accept=".json">
+                    </div>
+                </div>
+
+                <div class="dashboard-card">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID de Venta</th>
+                                    <th>Fecha y Hora</th>
+                                    <th>Productos Detalle</th>
+                                    <th>Método</th>
+                                    <th>Total Cobrado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <!-- Dynamic sales logs -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Product Modal (Add / Edit) -->
+    <div class="modal-overlay" id="product-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modal-title">Agregar Producto</h3>
+                <button class="modal-close" id="btn-close-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="product-form" class="modal-body">
+                <input type="hidden" id="form-product-id">
+                
+                <div class="form-group">
+                    <label for="prod-code">Código de Barras / SKU</label>
+                    <input type="text" id="prod-code" required placeholder="E.g., PROD-001">
+                </div>
+
+                <div class="form-group">
+                    <label for="prod-name">Nombre del Producto</label>
+                    <input type="text" id="prod-name" required placeholder="E.g., Camiseta Premium">
+                </div>
+
+                <div class="form-group">
+                    <label for="prod-desc">Descripción / Detalles</label>
+                    <textarea id="prod-desc" rows="3" placeholder="E.g., Algodón 100% orgánico, color azul marino"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col">
+                        <label for="prod-category">Categoría</label>
+                        <select id="prod-category">
+                            <option value="General">General</option>
+                            <option value="Electrónica">Electrónica</option>
+                            <option value="Ropa">Ropa / Textil</option>
+                            <option value="Alimentos">Alimentos / Bebidas</option>
+                            <option value="Hogar">Hogar y Jardín</option>
+                            <option value="Salud">Salud y Belleza</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col">
+                        <label for="prod-cost">Precio Compra ($)</label>
+                        <input type="number" id="prod-cost" min="0.01" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group col">
+                        <label for="prod-price">Precio Venta ($)</label>
+                        <input type="number" id="prod-price" min="0.01" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-group col">
+                        <label for="prod-stock">Stock Inicial</label>
+                        <input type="number" id="prod-stock" min="0" required placeholder="0">
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-product">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sale Detail Modal -->
+    <div class="modal-overlay" id="sale-detail-modal">
+        <div class="modal-container receipt-modal">
+            <div class="modal-header">
+                <h3>Detalle de Venta</h3>
+                <button class="modal-close" id="btn-close-receipt-modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="receipt-header">
+                    <div class="receipt-logo">
+                        <i data-lucide="package-search"></i>
+                        <span>Inventario <span class="accent-text">Monarca</span></span>
+                    </div>
+                    <div class="receipt-meta">
+                        <span id="receipt-id">#VENTA-0000000000000</span>
+                        <span id="receipt-date" class="muted-text">00/00/0000 00:00</span>
+                    </div>
+                </div>
+                <hr class="divider">
+                <div class="receipt-items" id="receipt-items-container">
+                    <!-- Dynamic receipt items -->
+                </div>
+                <hr class="divider">
+                <div class="receipt-summary">
+                    <div class="r-row">
+                        <span>Subtotal:</span>
+                        <span id="receipt-subtotal">$0.00</span>
+                    </div>
+                    <div class="r-row">
+                        <span>Impuesto (16%):</span>
+                        <span id="receipt-tax">$0.00</span>
+                    </div>
+                    <div class="r-row total">
+                        <span>Total Cobrado:</span>
+                        <span id="receipt-total">$0.00</span>
+                    </div>
+                    <div class="r-row payment-method">
+                        <span>Método de Pago:</span>
+                        <span id="receipt-payment-method">Efectivo</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary btn-block" id="btn-print-receipt">
+                    <i data-lucide="printer"></i> Imprimir Recibo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
