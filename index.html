@@ -68,10 +68,11 @@
 
             <!-- Dashboard Tab -->
             <section id="tab-dashboard" class="tab-content active">
+                <!-- Dashboard Timeframe Action Bar -->
                 <div class="action-bar" style="justify-content: flex-end; margin-bottom: 1.5rem;">
                     <div class="filter-actions">
-                        <span class="muted-text" style="font-weight: 500;">Período del Reporte:</span>
-                        <select id="dashboard-timeframe" class="form-control" style="width: 220px; padding: 0.5rem;">
+                        <span class="muted-text" style="font-weight: 500; font-size: 0.85rem;">Período del Reporte:</span>
+                        <select id="dashboard-timeframe" class="form-control" style="width: 220px; padding: 0.5rem; height: 38px;">
                             <option value="today">Hoy</option>
                             <option value="week">Esta Semana</option>
                             <option value="month" selected>Este Mes (Últimos 30 días)</option>
@@ -79,6 +80,7 @@
                         </select>
                     </div>
                 </div>
+
                 <!-- Metrics Grid -->
                 <div class="metrics-grid">
                     <div class="metric-card">
@@ -159,7 +161,7 @@
                                     <tbody id="recent-sales-tbody">
                                         <!-- Dynamic items here -->
                                         <tr>
-                                            <td colspan="4" class="text-center muted-text py-4">No hay ventas registradas hoy.</td>
+                                            <td colspan="4" class="text-center muted-text py-4">No hay ventas registradas en este período.</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -171,6 +173,38 @@
 
             <!-- Products Tab -->
             <section id="tab-productos" class="tab-content">
+                <!-- Inventory Valuation Grid -->
+                <div class="inventory-valuation-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="valuation-card" style="background: var(--bg-secondary); padding: 1.25rem; border: 1px dashed var(--border-color); border-radius: var(--border-radius-md); display: flex; align-items: center; gap: 1rem; box-shadow: var(--shadow-sm);">
+                        <div class="metric-icon" style="background-color: var(--primary-light); color: var(--primary); width: 40px; height: 40px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="calculator" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="muted-text" style="font-size: 0.8rem; font-weight: 500;">Valor a Costo (Inversión)</span>
+                            <h3 id="val-total-costo" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-display);">$0.00</h3>
+                        </div>
+                    </div>
+                    <div class="valuation-card" style="background: var(--bg-secondary); padding: 1.25rem; border: 1px dashed var(--border-color); border-radius: var(--border-radius-md); display: flex; align-items: center; gap: 1rem; box-shadow: var(--shadow-sm);">
+                        <div class="metric-icon" style="background-color: var(--success-light); color: var(--success); width: 40px; height: 40px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="dollar-sign" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="muted-text" style="font-size: 0.8rem; font-weight: 500;">Valor a Venta (Potencial)</span>
+                            <h3 id="val-total-venta" style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-display);">$0.00</h3>
+                        </div>
+                    </div>
+                    <div class="valuation-card" style="background: var(--bg-secondary); padding: 1.25rem; border: 1px dashed var(--border-color); border-radius: var(--border-radius-md); display: flex; align-items: center; gap: 1rem; box-shadow: var(--shadow-sm);">
+                        <div class="metric-icon" style="background-color: var(--warning-light); color: var(--warning); width: 40px; height: 40px; border-radius: var(--border-radius-sm); display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="trending-up" style="width: 20px; height: 20px;"></i>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="muted-text" style="font-size: 0.8rem; font-weight: 500;">Rendimiento Estimado</span>
+                            <h3 id="val-total-ganancia" style="font-size: 1.25rem; font-weight: 700; color: var(--success); font-family: var(--font-display);">$0.00</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Bar -->
                 <div class="action-bar">
                     <div class="search-box">
                         <i data-lucide="search" class="search-icon"></i>
@@ -189,6 +223,7 @@
                     </div>
                 </div>
 
+                <!-- Table Card -->
                 <div class="dashboard-card">
                     <div class="table-responsive">
                         <table class="table">

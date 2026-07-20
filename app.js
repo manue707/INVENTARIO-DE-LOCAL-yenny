@@ -1,6 +1,7 @@
 /**
  * Inventario Monarca - Application Controller
- * Handles state, local storage, UI rendering, sales cart, and dashboard analytics.
+ * Handles state, local storage, UI rendering, sales cart, backup/restore,
+ * dashboard timeframe reports, and inventory valuation analytics.
  */
 
 class InventoryApp {
@@ -23,7 +24,7 @@ class InventoryApp {
     }
 
     init() {
-        // Load data
+        // Load data from localStorage
         this.loadData();
 
         // Bind DOM events
@@ -39,7 +40,7 @@ class InventoryApp {
         }
     }
 
-    // --- DATA HANDLING ---
+    // --- DATA HANDLING & PERSISTENCE ---
 
     loadData() {
         const storedProducts = localStorage.getItem('sv_products');
@@ -80,20 +81,20 @@ class InventoryApp {
         }
     }
 
-    updateOwnerAvatar(name) {
-        const avatar = document.getElementById('owner-avatar');
-        if (avatar && name) {
-            const firstLetter = name.trim().charAt(0).toUpperCase();
-            avatar.innerText = firstLetter || 'A';
-        }
-    }
-
     saveProducts() {
         localStorage.setItem('sv_products', JSON.stringify(this.products));
     }
 
     saveSales() {
         localStorage.setItem('sv_sales', JSON.stringify(this.sales));
+    }
+
+    updateOwnerAvatar(name) {
+        const avatar = document.getElementById('owner-avatar');
+        if (avatar && name) {
+            const firstLetter = name.trim().charAt(0).toUpperCase();
+            avatar.innerText = firstLetter || 'A';
+        }
     }
 
     // --- EVENT BINDING ---
@@ -129,6 +130,12 @@ class InventoryApp {
             });
         }
 
+        // Dashboard Report Filter
+        const timeframeEl = document.getElementById('dashboard-timeframe');
+        if (timeframeEl) {
+            timeframeEl.addEventListener('change', () => this.renderDashboardStats());
+        }
+
         // Dashboard buttons
         document.getElementById('btn-dashboard-view-all').addEventListener('click', () => {
             this.switchTab('historial');
@@ -149,13 +156,27 @@ class InventoryApp {
         document.getElementById('btn-clear-cart').addEventListener('click', () => this.clearCart());
         document.getElementById('btn-complete-sale').addEventListener('click', () => this.completeSale());
 
-        // History Filters
+        // History Filters & Backups
         document.getElementById('history-filter-date').addEventListener('change', () => this.renderSalesHistory());
         document.getElementById('btn-clear-date-filter').addEventListener('click', () => {
             document.getElementById('history-filter-date').value = '';
             this.renderSalesHistory();
         });
         document.getElementById('btn-export-csv').addEventListener('click', () => this.exportSalesToCSV());
+        
+        // Backup Button Click
+        document.getElementById('btn-backup-data').addEventListener('click', () => this.backupData());
+        
+        // Restore Button Trigger hidden input
+        document.getElementById('btn-restore-data').addEventListener('click', () => {
+            document.getElementById('restore-file-input').click();
+        });
+        document.getElementById('restore-file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.restoreData(file);
+            }
+        });
 
         // Receipt Modal
         document.getElementById('btn-close-receipt-modal').addEventListener('click', () => {
@@ -197,19 +218,22 @@ class InventoryApp {
             case 'dashboard':
                 pageTitle.innerText = 'Dashboard';
                 pageSubtitle.innerText = 'Resumen del rendimiento de tu negocio hoy';
+                this.renderDashboardStats();
                 break;
             case 'productos':
                 pageTitle.innerText = 'Inventario';
                 pageSubtitle.innerText = 'Gestiona, añade y edita tu catálogo de productos';
+                this.renderProductsTable();
                 break;
             case 'ventas':
                 pageTitle.innerText = 'Registrar Venta';
                 pageSubtitle.innerText = 'Añade artículos al carrito y factura en segundos';
-                this.renderSalesGrid(); // Refresh grid state (stocks may have changed)
+                this.renderSalesGrid();
                 break;
             case 'historial':
                 pageTitle.innerText = 'Historial de Ventas';
                 pageSubtitle.innerText = 'Consulta tus facturas registradas y exporta datos';
+                this.renderSalesHistory();
                 break;
         }
 
@@ -247,28 +271,42 @@ class InventoryApp {
     // --- DASHBOARD ANALYTICS ---
 
     renderDashboardStats() {
-        // Income, sales count, stock counters
-        const today = new Date().toISOString().split('T')[0];
+        const timeframe = document.getElementById('dashboard-timeframe') ? document.getElementById('dashboard-timeframe').value : 'month';
         
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        // Filter sales array based on timeframe
+        const filteredSales = this.sales.filter(sale => {
+            const saleDate = new Date(sale.timestamp);
+            const diffTime = Math.abs(now - saleDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (timeframe === 'today') {
+                return sale.timestamp.startsWith(todayStr);
+            } else if (timeframe === 'week') {
+                return diffDays <= 7;
+            } else if (timeframe === 'month') {
+                return diffDays <= 30;
+            } else {
+                return true; // all time
+            }
+        });
+
+        // Income, cost of sales calculation
         let ingresosTotales = 0;
         let totalCostosVentas = 0;
-        let totalVentasHoy = 0;
+        let subtotalVentas = 0;
         
-        this.sales.forEach(sale => {
+        filteredSales.forEach(sale => {
             ingresosTotales += sale.total;
-            // Sum purchase costs of sold goods
+            subtotalVentas += sale.subtotal;
             sale.items.forEach(item => {
                 const itemCost = parseFloat(item.cost !== undefined ? item.cost : item.price * 0.6);
                 totalCostosVentas += itemCost * item.qty;
             });
-            if (sale.timestamp.startsWith(today)) {
-                totalVentasHoy++;
-            }
         });
 
-        // We calculate net profit based on subtotal (revenue before tax) vs purchase costs
-        let subtotalVentas = 0;
-        this.sales.forEach(s => { subtotalVentas += s.subtotal; });
         const gananciaNeta = subtotalVentas - totalCostosVentas;
         const margenPromedio = subtotalVentas > 0 ? (gananciaNeta / subtotalVentas) * 100 : 0;
 
@@ -288,7 +326,7 @@ class InventoryApp {
         document.getElementById('stat-ingresos').innerText = `$${ingresosTotales.toFixed(2)}`;
         document.getElementById('stat-ganancia').innerText = `$${gananciaNeta.toFixed(2)}`;
         document.getElementById('stat-ganancia-margin').innerText = `${margenPromedio.toFixed(1)}% Margen prom.`;
-        document.getElementById('stat-ventas').innerText = this.sales.length;
+        document.getElementById('stat-ventas').innerText = filteredSales.length;
         document.getElementById('stat-total-stock').innerText = totalUnidadesStock;
         document.getElementById('stat-alertas').innerText = stockCritico;
         document.getElementById('stat-productos').innerText = totalProductosTipos;
@@ -304,23 +342,21 @@ class InventoryApp {
             alertTrend.innerHTML = `<span id="stat-productos">${totalProductosTipos}</span> productos`;
         }
 
-        // Render Top Products List (Dashboard)
-        this.renderTopProductsList();
-
-        // Render Recent Sales (Dashboard)
-        this.renderRecentSalesList();
+        // Render lists with the filtered sales
+        this.renderTopProductsList(filteredSales);
+        this.renderRecentSalesList(filteredSales);
 
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
     }
 
-    renderTopProductsList() {
+    renderTopProductsList(salesList) {
         const container = document.getElementById('top-products-container');
         
         // Group quantities by product ID
         const productSales = {};
-        this.sales.forEach(sale => {
+        salesList.forEach(sale => {
             sale.items.forEach(item => {
                 if (!productSales[item.id]) {
                     productSales[item.id] = {
@@ -341,7 +377,7 @@ class InventoryApp {
         })).sort((a, b) => b.qty - a.qty).slice(0, 4);
 
         if (topList.length === 0) {
-            container.innerHTML = `<p class="muted-text text-center py-4">No hay datos de ventas hoy.</p>`;
+            container.innerHTML = `<p class="muted-text text-center py-4">No hay datos de ventas en este período.</p>`;
             return;
         }
 
@@ -364,14 +400,14 @@ class InventoryApp {
         }).join('');
     }
 
-    renderRecentSalesList() {
+    renderRecentSalesList(salesList) {
         const tbody = document.getElementById('recent-sales-tbody');
-        const recentSales = [...this.sales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5);
+        const recentSales = [...salesList].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, 5);
 
         if (recentSales.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center muted-text py-4">No hay ventas registradas.</td>
+                    <td colspan="4" class="text-center muted-text py-4">No hay ventas registradas en este período.</td>
                 </tr>
             `;
             return;
@@ -380,13 +416,11 @@ class InventoryApp {
         tbody.innerHTML = recentSales.map(sale => {
             const date = new Date(sale.timestamp);
             const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            // Generate list summary
             const itemsSummary = sale.items.map(i => `${i.qty}x ${i.name.split(' ')[0]}`).join(', ');
 
             return `
                 <tr style="cursor:pointer;" onclick="app.showSaleDetail('${sale.id}')">
-                    <td><strong>#${sale.id.substring(2, 8)}</strong></td>
+                    <td><strong>#${sale.id.split('-')[1].substring(4)}</strong></td>
                     <td>${formattedDate}</td>
                     <td class="text-truncate" style="max-width: 140px;">${itemsSummary}</td>
                     <td><span class="badge badge-success">$${sale.total.toFixed(2)}</span></td>
@@ -395,7 +429,7 @@ class InventoryApp {
         }).join('');
     }
 
-    // --- PRODUCTS MANAGEMENT (CRUD) ---
+    // --- PRODUCTS MANAGEMENT & VALUATION ---
 
     renderProductsTable() {
         const tbody = document.getElementById('products-tbody');
@@ -416,10 +450,35 @@ class InventoryApp {
             return matchesSearch && matchesStock;
         });
 
+        // 1. Calculate and update Total Inventory Valuation Metrics
+        let totalValCost = 0;
+        let totalValPrice = 0;
+
+        this.products.forEach(p => {
+            const stock = parseInt(p.stock) || 0;
+            const cost = parseFloat(p.cost !== undefined ? p.cost : p.price * 0.6) || 0;
+            const price = parseFloat(p.price) || 0;
+
+            totalValCost += cost * stock;
+            totalValPrice += price * stock;
+        });
+
+        const totalValProfit = totalValPrice - totalValCost;
+
+        // Render valuation elements
+        const valCostEl = document.getElementById('val-total-costo');
+        const valPriceEl = document.getElementById('val-total-venta');
+        const valProfitEl = document.getElementById('val-total-ganancia');
+
+        if (valCostEl) valCostEl.innerText = `$${totalValCost.toFixed(2)}`;
+        if (valPriceEl) valPriceEl.innerText = `$${totalValPrice.toFixed(2)}`;
+        if (valProfitEl) valProfitEl.innerText = `$${totalValProfit.toFixed(2)}`;
+
+        // 2. Render Products list table rows
         if (filteredProducts.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center muted-text py-4">No se encontraron productos que coincidan.</td>
+                    <td colspan="8" class="text-center muted-text py-4">No se encontraron productos en el inventario.</td>
                 </tr>
             `;
             return;
@@ -438,7 +497,7 @@ class InventoryApp {
                 statusText = 'Stock Bajo';
             }
 
-            // Calculations
+            // Calculations per product row
             const costVal = parseFloat(p.cost !== undefined ? p.cost : p.price * 0.6);
             const priceVal = parseFloat(p.price);
             const profit = priceVal - costVal;
@@ -449,7 +508,7 @@ class InventoryApp {
                     <td><code>${p.code}</code></td>
                     <td>
                         <strong>${p.name}</strong><br>
-                        <span class="muted-text" style="font-size:0.85rem;">${p.description || 'Sin descripción'}</span>
+                        <span class="muted-text" style="font-size:0.82rem;">${p.description || 'Sin descripción'}</span>
                     </td>
                     <td>${p.category || 'General'}</td>
                     <td>
@@ -531,10 +590,10 @@ class InventoryApp {
         const price = parseFloat(document.getElementById('prod-price').value);
         const stock = parseInt(document.getElementById('prod-stock').value);
 
-        // Validation for unique codes (exclude current edit id)
+        // Validation for unique SKU codes
         const codeExists = this.products.some(p => p.code.toLowerCase() === code.toLowerCase() && p.id !== id);
         if (codeExists) {
-            this.showToast('El código de producto o SKU ya existe', 'danger');
+            this.showToast('El código SKU ya existe en el inventario', 'danger');
             return;
         }
 
@@ -543,11 +602,11 @@ class InventoryApp {
         }
 
         if (id) {
-            // Edit product
+            // Edit existing product
             const index = this.products.findIndex(p => p.id === id);
             if (index !== -1) {
                 this.products[index] = { ...this.products[index], code, name, description, category, cost, price, stock };
-                this.showToast('Producto actualizado correctamente', 'success');
+                this.showToast('Producto actualizado en el inventario', 'success');
             }
         } else {
             // Create new product
@@ -562,7 +621,7 @@ class InventoryApp {
                 stock
             };
             this.products.push(newProduct);
-            this.showToast('Producto agregado al catálogo', 'success');
+            this.showToast('Producto guardado en el inventario', 'success');
         }
 
         this.saveProducts();
@@ -574,18 +633,17 @@ class InventoryApp {
         const p = this.products.find(item => item.id === id);
         if (!p) return;
 
-        if (confirm(`¿Estás seguro de que quieres eliminar el producto "${p.name}" del inventario?`)) {
+        if (confirm(`¿Estás seguro de que deseas eliminar el producto "${p.name}"?`)) {
             this.products = this.products.filter(item => item.id !== id);
-            // Also clean from active carts
-            this.cart = this.cart.filter(item => item.id !== id);
+            this.cart = this.cart.filter(item => item.id !== id); // clean from active carts
             
             this.saveProducts();
             this.renderAll();
-            this.showToast('Producto eliminado del catálogo', 'warning');
+            this.showToast('Producto eliminado', 'warning');
         }
     }
 
-    // --- SALES INTERFACE & CART ---
+    // --- SALES GRID & CART ---
 
     renderSalesGrid() {
         const grid = document.getElementById('picker-grid-container');
@@ -631,25 +689,22 @@ class InventoryApp {
         const product = this.products.find(p => p.id === productId);
         if (!product) return;
 
-        // Check if there is stock
         const stockLimit = parseInt(product.stock);
         if (stockLimit <= 0) {
-            this.showToast('Este producto no tiene existencias en stock', 'danger');
+            this.showToast('Este producto está agotado', 'danger');
             return;
         }
 
         const cartItemIndex = this.cart.findIndex(item => item.id === productId);
 
         if (cartItemIndex !== -1) {
-            // Already in cart, verify stock limit
             if (this.cart[cartItemIndex].qty < stockLimit) {
                 this.cart[cartItemIndex].qty++;
-                this.showToast(`Cantidad incrementada en carrito`, 'success');
+                this.showToast('Cantidad incrementada en el carrito', 'success');
             } else {
-                this.showToast(`Stock máximo alcanzado (${stockLimit} unidades)`, 'warning');
+                this.showToast(`Stock límite alcanzado (${stockLimit} unidades)`, 'warning');
             }
         } else {
-            // Add new cart item
             this.cart.push({
                 id: product.id,
                 name: product.name,
@@ -684,7 +739,6 @@ class InventoryApp {
             return;
         }
 
-        // Render cart list items
         container.innerHTML = this.cart.map(item => {
             const product = this.products.find(p => p.id === item.id);
             const maxStock = product ? parseInt(product.stock) : 999;
@@ -715,7 +769,7 @@ class InventoryApp {
             `;
         }).join('');
 
-        // Calculate checkout metrics (16% tax)
+        // Calculate checkout metrics
         let subtotal = 0;
         this.cart.forEach(item => {
             subtotal += item.price * item.qty;
@@ -760,12 +814,12 @@ class InventoryApp {
     removeFromCart(productId) {
         this.cart = this.cart.filter(item => item.id !== productId);
         this.renderCart();
-        this.showToast('Producto retirado del carrito', 'info');
+        this.showToast('Producto quitado del carrito', 'info');
     }
 
     clearCart() {
         if (this.cart.length === 0) return;
-        if (confirm('¿Deseas vaciar todos los productos del carrito actual?')) {
+        if (confirm('¿Deseas vaciar los productos del carrito?')) {
             this.cart = [];
             this.renderCart();
             this.showToast('Carrito vaciado', 'info');
@@ -775,11 +829,10 @@ class InventoryApp {
     completeSale() {
         if (this.cart.length === 0) return;
 
-        // Deduct quantities from product stocks and record details
         const finalItems = [];
         let error = false;
 
-        // Multi-stock validation before billing
+        // Verify stock limit on checkout
         this.cart.forEach(cartItem => {
             const productIndex = this.products.findIndex(p => p.id === cartItem.id);
             if (productIndex !== -1) {
@@ -789,17 +842,17 @@ class InventoryApp {
                     error = true;
                 }
             } else {
-                this.showToast(`El producto "${cartItem.name}" ya no existe en el catálogo`, 'danger');
+                this.showToast(`El producto "${cartItem.name}" ya no existe`, 'danger');
                 error = true;
             }
         });
 
         if (error) return;
 
-        // Execute billing & stock deduction
+        // Deduct quantities and build final invoice products
         this.cart.forEach(cartItem => {
             const productIndex = this.products.findIndex(p => p.id === cartItem.id);
-            let itemCost = cartItem.price * 0.6; // Default fallback
+            let itemCost = cartItem.price * 0.6; // Fallback
             if (productIndex !== -1) {
                 this.products[productIndex].stock -= cartItem.qty;
                 itemCost = parseFloat(this.products[productIndex].cost !== undefined ? this.products[productIndex].cost : cartItem.price * 0.6);
@@ -808,12 +861,11 @@ class InventoryApp {
                 id: cartItem.id,
                 name: cartItem.name,
                 price: cartItem.price,
-                cost: itemCost, // Preserve historic cost in the sale
+                cost: itemCost, // Historic cost saved
                 qty: cartItem.qty
             });
         });
 
-        // Compute invoice sums
         let subtotal = 0;
         finalItems.forEach(item => {
             subtotal += item.price * item.qty;
@@ -822,7 +874,7 @@ class InventoryApp {
         const total = subtotal + tax;
         const paymentMethod = document.getElementById('payment-method').value;
 
-        // Create Sale Entity
+        // Create Sale
         const newSale = {
             id: 'V-' + Date.now(),
             timestamp: new Date().toISOString(),
@@ -833,18 +885,17 @@ class InventoryApp {
             paymentMethod
         };
 
-        // Commit to store
         this.sales.push(newSale);
         this.saveProducts();
         this.saveSales();
 
-        // Show invoice detail right away
+        // Show Invoice Receipt Modal
         this.showSaleDetail(newSale.id);
 
-        // Reset workspace
+        // Reset
         this.cart = [];
         this.renderAll();
-        this.showToast('¡Venta realizada con éxito!', 'success');
+        this.showToast('Venta facturada y guardada', 'success');
     }
 
     // --- SALES HISTORY LOG ---
@@ -855,14 +906,13 @@ class InventoryApp {
 
         const filteredSales = this.sales.filter(sale => {
             if (!filterDate) return true;
-            // Compare YYYY-MM-DD
             return sale.timestamp.startsWith(filterDate);
         }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         if (filteredSales.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center muted-text py-4">No se registraron ventas en esta fecha.</td>
+                    <td colspan="6" class="text-center muted-text py-4">No se encontraron registros de ventas.</td>
                 </tr>
             `;
             return;
@@ -872,12 +922,11 @@ class InventoryApp {
             const date = new Date(sale.timestamp);
             const dateStr = date.toLocaleDateString();
             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
             const itemsStr = sale.items.map(i => `${i.qty}x ${i.name}`).join('<br>');
 
             return `
                 <tr>
-                    <td><strong>#${sale.id.split('-')[1]}</strong></td>
+                    <td><strong>#${sale.id.split('-')[1].substring(4)}</strong></td>
                     <td>${dateStr}<br><span class="muted-text">${timeStr}</span></td>
                     <td style="font-size: 0.85rem; max-width: 280px; overflow: hidden; text-overflow: ellipsis;">
                         ${itemsStr}
@@ -948,18 +997,71 @@ class InventoryApp {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement('a');
         link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `Reporte_Ventas_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link); // Required for FF
+        link.setAttribute('download', `Reporte_Ventas_Monarca_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
 
         link.click();
         document.body.removeChild(link);
         this.showToast('Reporte CSV descargado con éxito', 'success');
     }
 
+    // --- DATABASE BACKUP & RESTORE ---
+
+    backupData() {
+        const backup = {
+            products: this.products,
+            sales: this.sales,
+            owner: localStorage.getItem('sv_owner') || 'Administrador',
+            theme: localStorage.getItem('sv_theme') || 'dark'
+        };
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `Copia_Seguridad_Inventario_Monarca_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        this.showToast('Copia de seguridad descargada correctamente', 'success');
+    }
+
+    restoreData(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (Array.isArray(imported.products) && Array.isArray(imported.sales)) {
+                    this.products = imported.products;
+                    this.sales = imported.sales;
+                    
+                    if (imported.owner) localStorage.setItem('sv_owner', imported.owner);
+                    if (imported.theme) localStorage.setItem('sv_theme', imported.theme);
+                    
+                    this.saveProducts();
+                    this.saveSales();
+                    this.renderAll();
+                    
+                    // Reload owner name input
+                    const ownerEl = document.getElementById('owner-name');
+                    if (ownerEl && imported.owner) {
+                        ownerEl.value = imported.owner;
+                        this.updateOwnerAvatar(imported.owner);
+                    }
+                    
+                    this.showToast('Base de datos restaurada con éxito', 'success');
+                } else {
+                    this.showToast('El archivo de respaldo no tiene un formato válido', 'danger');
+                }
+            } catch (err) {
+                this.showToast('Error al leer el archivo de copia de seguridad', 'danger');
+            }
+        };
+        reader.readAsText(file);
+    }
+
     // --- TOAST SYSTEM ---
 
     showToast(message, type = 'info') {
-        // Create toast container if not exists
         let container = document.querySelector('.toast-container');
         if (!container) {
             container = document.createElement('div');
@@ -986,7 +1088,6 @@ class InventoryApp {
             lucide.createIcons();
         }
 
-        // Remove toast animation triggers
         setTimeout(() => {
             toast.classList.add('toast-exit');
             toast.addEventListener('animationend', () => {
