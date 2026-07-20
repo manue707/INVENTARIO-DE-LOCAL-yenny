@@ -168,6 +168,19 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Sales by Month Card -->
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>Acumulado Mensual</h3>
+                            <i data-lucide="calendar-days" class="header-icon"></i>
+                        </div>
+                        <div class="card-body">
+                            <div class="monthly-sales-list" id="monthly-sales-container">
+                                <p class="muted-text text-center py-4">No hay ventas registradas.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -249,66 +262,72 @@
 
             <!-- Sales Tab -->
             <section id="tab-ventas" class="tab-content">
-                <div class="sales-workspace">
-                    <!-- Left: Cart Builder -->
-                    <div class="sales-builder dashboard-card">
-                        <div class="card-header">
-                            <h3>Carrito de Venta</h3>
-                            <button class="btn btn-sm btn-outline-danger" id="btn-clear-cart">
-                                <i data-lucide="trash-2"></i> Vaciar
-                            </button>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="cart-items-list" id="cart-items-container">
-                                <!-- Dynamic cart items -->
-                                <div class="empty-cart-message">
-                                    <i data-lucide="shopping-cart" class="empty-icon"></i>
-                                    <p>El carrito está vacío</p>
-                                    <span class="muted-text">Agrega productos desde el panel de la derecha</span>
-                                </div>
+
+                <!-- Hidden inputs kept for JS compatibility -->
+                <input type="text" id="sales-product-search" style="display:none;">
+                <div id="picker-grid-container" style="display:none;"></div>
+
+                <!-- Single centered sales card -->
+                <div class="dashboard-card" style="max-width: 680px; margin: 0 auto;">
+
+                    <!-- Quick Add Row -->
+                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                        <h3 style="font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">
+                            <i data-lucide="plus-circle" style="width:18px;height:18px;vertical-align:middle;margin-right:0.4rem;color:var(--primary);"></i>
+                            Agregar Producto a la Venta
+                        </h3>
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-end;">
+                            <div style="flex: 1; position: relative;">
+                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 0.35rem;">Nombre del Producto</label>
+                                <input type="text" id="quick-add-name" placeholder="Escribe el nombre y selecciona..." style="width: 100%;" autocomplete="off">
+                                <div id="quick-add-autocomplete" class="autocomplete-dropdown"></div>
                             </div>
-                        </div>
-                        <div class="cart-summary">
-                            <div class="summary-row">
-                                <span>Subtotal</span>
-                                <span id="cart-subtotal">$0.00</span>
+                            <div style="width: 90px;">
+                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display:block; margin-bottom: 0.35rem;">Cantidad</label>
+                                <input type="number" id="quick-add-qty" min="1" value="1" style="width: 100%; text-align: center;">
                             </div>
-                            <div class="summary-row">
-                                <span>Impuesto (16%)</span>
-                                <span id="cart-tax">$0.00</span>
-                            </div>
-                            <div class="summary-row total-row">
-                                <span>Total a Pagar</span>
-                                <span id="cart-total">$0.00</span>
-                            </div>
-                            <div class="payment-method-sec">
-                                <label for="payment-method">Método de Pago</label>
-                                <select id="payment-method" class="form-control">
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Tarjeta">Tarjeta de Crédito/Débito</option>
-                                    <option value="Transferencia">Transferencia Bancaria</option>
-                                </select>
-                            </div>
-                            <button class="btn btn-success btn-lg btn-block" id="btn-complete-sale" disabled>
-                                <i data-lucide="check-circle-2"></i> Finalizar Venta
+                            <button class="btn btn-primary" id="btn-quick-add" style="height: 42px; padding: 0 1.25rem;">
+                                <i data-lucide="plus"></i> Agregar
                             </button>
                         </div>
                     </div>
 
-                    <!-- Right: Product Picker -->
-                    <div class="product-picker-panel">
-                        <div class="picker-search dashboard-card">
-                            <div class="search-box">
-                                <i data-lucide="search" class="search-icon"></i>
-                                <input type="text" id="sales-product-search" placeholder="Buscar productos para vender...">
+                    <!-- Cart Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem 0.5rem;">
+                        <span style="font-weight: 600; font-size: 0.9rem; color: var(--text-secondary);">Productos en esta venta</span>
+                        <button class="btn btn-sm btn-outline-danger" id="btn-clear-cart">
+                            <i data-lucide="trash-2"></i> Vaciar
+                        </button>
+                    </div>
+
+                    <!-- Cart Items -->
+                    <div class="card-body p-0">
+                        <div class="cart-items-list" id="cart-items-container" style="min-height: 180px; padding: 0.5rem 1rem;">
+                            <div class="empty-cart-message">
+                                <i data-lucide="shopping-cart" class="empty-icon"></i>
+                                <p>La lista está vacía</p>
+                                <span class="muted-text">Escribe el nombre de un producto arriba y agrégalo</span>
                             </div>
                         </div>
-                        <div class="product-picker-grid" id="picker-grid-container">
-                            <!-- Dynamic product grid cards -->
+                    </div>
+
+                    <!-- Totals & Checkout -->
+                    <div class="cart-summary">
+                        <div class="summary-row total-row">
+                            <span>Total de Venta</span>
+                            <span id="cart-total">$0</span>
                         </div>
+                        <!-- Hidden elements kept for JS compatibility -->
+                        <span id="cart-subtotal" style="display:none;">$0</span>
+                        <span id="cart-tax" style="display:none;">$0</span>
+                        <input type="hidden" id="payment-method" value="Efectivo">
+                        <button class="btn btn-success btn-lg btn-block" id="btn-complete-sale" disabled>
+                            <i data-lucide="check-circle-2"></i> Guardar Venta
+                        </button>
                     </div>
                 </div>
             </section>
+
 
             <!-- History Tab -->
             <section id="tab-historial" class="tab-content">

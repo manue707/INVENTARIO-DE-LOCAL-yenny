@@ -10,6 +10,8 @@ class InventoryApp {
         this.sales = [];
         this.cart = [];
         this.activeTab = 'dashboard';
+        this.isCodeManuallyEdited = false;
+        this.editingSaleId = null;
 
         // Seed products list for demonstration (with purchase cost and selling price)
         this.defaultProducts = [
@@ -33,6 +35,7 @@ class InventoryApp {
         // Render initially
         this.switchTab('dashboard');
         this.renderAll();
+        this.bindQuickAdd();
 
         // Initialize Lucide Icons
         if (typeof lucide !== 'undefined') {
@@ -162,6 +165,28 @@ class InventoryApp {
         document.getElementById('btn-cancel-modal').addEventListener('click', () => this.closeProductModal());
         document.getElementById('product-form').addEventListener('submit', (e) => this.handleProductFormSubmit(e));
 
+        // Auto-generate SKU from name initials
+        const prodNameInput = document.getElementById('prod-name');
+        const prodCodeInput = document.getElementById('prod-code');
+        
+        if (prodCodeInput) {
+            prodCodeInput.addEventListener('input', () => {
+                this.isCodeManuallyEdited = true;
+            });
+        }
+        
+        if (prodNameInput && prodCodeInput) {
+            prodNameInput.addEventListener('input', (e) => {
+                const id = document.getElementById('form-product-id').value;
+                if (!id && !this.isCodeManuallyEdited) {
+                    const nameVal = e.target.value;
+                    const initials = this.getInitials(nameVal);
+                    const suffix = String(this.products.length + 1).padStart(3, '0');
+                    prodCodeInput.value = nameVal.trim() === '' ? 'PROD-' + suffix : `${initials}-${suffix}`;
+                }
+            });
+        }
+
         // Sales Panel Logic
         document.getElementById('sales-product-search').addEventListener('input', () => this.renderSalesGrid());
         document.getElementById('btn-clear-cart').addEventListener('click', () => this.clearCart());
@@ -277,6 +302,165 @@ class InventoryApp {
         this.renderSalesGrid();
         this.renderCart();
         this.renderSalesHistory();
+        this.renderMonthlySales();
+    }
+
+    // --- QUICK ADD BY NAME (Venta Rápida) ---
+
+    bindQuickAdd() {
+        const nameInput = document.getElementById('quick-add-name');
+        const dropdown = document.getElementById('quick-add-autocomplete');
+        const btnAdd = document.getElementById('btn-quick-add');
+
+        if (!nameInput) return;
+
+        nameInput.addEventListener('input', () => {
+            const q = nameInput.value.trim().toLowerCase();
+            if (q.length < 1) {
+                dropdown.style.display = 'none';
+                dropdown.innerHTML = '';
+                return;
+            }
+            const matches = this.products.filter(p =>
+                p.name.toLowerCase().includes(q)
+            );
+            if (matches.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            dropdown.innerHTML = matches.slice(0, 6).map(p => {
+                const stock = parseInt(p.stock);
+                const outOfStock = stock <= 0;
+                return `
+                    <div class="autocomplete-option ${outOfStock ? 'opacity-50' : ''}"
+                         style="${outOfStock ? 'opacity:0.45; cursor:not-allowed;' : ''}"
+                         onclick="${outOfStock ? '' : `window.app.selectQuickProduct('${p.id}')`}">
+                        <span>${p.name} ${outOfStock ? '<small style="color:var(--danger);">(Agotado)</small>' : ''}</span>
+                        <span class="option-price">${this.formatMoney(p.price)}</span>
+                    </div>
+                `;
+            }).join('');
+            dropdown.style.display = 'block';
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!nameInput.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                const name = nameInput.value.trim();
+                const qty = parseInt(document.getElementById('quick-add-qty').value) || 1;
+                if (!name) {
+                    this.showToast('Escribe el nombre del producto', 'warning');
+                    return;
+                }
+                const product = this.products.find(p =>
+                    p.name.toLowerCase() === name.toLowerCase()
+                );
+                if (!product) {
+                    this.showToast('Producto no encontrado. Verifica el nombre', 'danger');
+                    return;
+                }
+                if (parseInt(product.stock) <= 0) {
+                    this.showToast('Este producto está agotado', 'danger');
+                    return;
+                }
+                this.addToCartById(product.id, qty);
+                nameInput.value = '';
+                document.getElementById('quick-add-qty').value = 1;
+                dropdown.style.display = 'none';
+            });
+        }
+    }
+
+    selectQuickProduct(productId) {
+        const product = this.products.find(p => p.id === productId);
+        if (!product) return;
+        const nameInput = document.getElementById('quick-add-name');
+        const dropdown = document.getElementById('quick-add-autocomplete');
+        if (nameInput) nameInput.value = product.name;
+        if (dropdown) dropdown.style.display = 'none';
+    }
+
+    addToCartById(productId, qty = 1) {
+        const product = this.products.find(p => p.id === productId);
+        if (!product) return;
+        const stockLimit = parseInt(product.stock);
+        if (stockLimit <= 0) {
+            this.showToast('Este producto está agotado', 'danger');
+            return;
+        }
+        const cartItemIndex = this.cart.findIndex(item => item.id === productId);
+        if (cartItemIndex !== -1) {
+            const newQty = this.cart[cartItemIndex].qty + qty;
+            if (newQty <= stockLimit) {
+                this.cart[cartItemIndex].qty = newQty;
+            } else {
+                this.cart[cartItemIndex].qty = stockLimit;
+                this.showToast(`Stock máximo alcanzado (${stockLimit} unidades)`, 'warning');
+            }
+        } else {
+            this.cart.push({
+                id: product.id,
+                name: product.name,
+                price: parseFloat(product.price),
+                qty: Math.min(qty, stockLimit)
+            });
+        }
+        this.showToast(`"${product.name}" agregado al carrito`, 'success');
+        this.renderCart();
+    }
+
+    // --- MONTHLY CUMULATIVE SALES ---
+
+    renderMonthlySales() {
+        const container = document.getElementById('monthly-sales-container');
+        if (!container) return;
+
+        if (this.sales.length === 0) {
+            container.innerHTML = `<p class="muted-text text-center py-4">No hay ventas registradas.</p>`;
+            return;
+        }
+
+        // Group sales by year-month
+        const monthMap = {};
+        this.sales.forEach(sale => {
+            const date = new Date(sale.timestamp);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (!monthMap[key]) {
+                monthMap[key] = { total: 0, count: 0 };
+            }
+            monthMap[key].total += sale.total;
+            monthMap[key].count++;
+        });
+
+        // Sort months descending
+        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                            'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        const sortedKeys = Object.keys(monthMap).sort((a, b) => b.localeCompare(a));
+
+        container.innerHTML = sortedKeys.map(key => {
+            const [year, month] = key.split('-');
+            const label = `${monthNames[parseInt(month) - 1]} ${year}`;
+            const data = monthMap[key];
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center;
+                            padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-weight: 600; font-size: 0.9rem;">${label}</span><br>
+                        <span class="muted-text" style="font-size: 0.78rem;">${data.count} venta(s)</span>
+                    </div>
+                    <span style="font-family: var(--font-display); font-weight: 700;
+                                 font-size: 1.1rem; color: var(--success);">
+                        ${this.formatMoney(data.total)}
+                    </span>
+                </div>
+            `;
+        }).join('');
     }
 
     // --- DASHBOARD ANALYTICS ---
@@ -578,6 +762,7 @@ class InventoryApp {
         } else {
             // Add mode
             title.innerText = 'Agregar Producto';
+            this.isCodeManuallyEdited = false;
             // Suggest automatic SKU code
             document.getElementById('prod-code').value = 'PROD-' + String(this.products.length + 1).padStart(3, '0');
         }
@@ -780,17 +965,12 @@ class InventoryApp {
             `;
         }).join('');
 
-        // Calculate checkout metrics
-        let subtotal = 0;
+        // Calculate total (no tax/IVA)
+        let total = 0;
         this.cart.forEach(item => {
-            subtotal += item.price * item.qty;
+            total += item.price * item.qty;
         });
 
-        const tax = subtotal * 0.16;
-        const total = subtotal + tax;
-
-        document.getElementById('cart-subtotal').innerText = this.formatMoney(subtotal);
-        document.getElementById('cart-tax').innerText = this.formatMoney(tax);
         document.getElementById('cart-total').innerText = this.formatMoney(total);
         document.getElementById('btn-complete-sale').disabled = false;
 
@@ -837,12 +1017,34 @@ class InventoryApp {
         }
     }
 
+    editSale(saleId) {
+        const sale = this.sales.find(s => s.id === saleId);
+        if (!sale) return;
+        // Restore stock from the original sale
+        sale.items.forEach(item => {
+            const prodIdx = this.products.findIndex(p => p.id === item.id);
+            if (prodIdx !== -1) {
+                this.products[prodIdx].stock = (parseInt(this.products[prodIdx].stock) + item.qty).toString();
+            }
+        });
+        // Load items into cart for editing
+        this.cart = sale.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty
+        }));
+        this.editingSaleId = saleId;
+        this.renderCart();
+        this.showToast('Venta cargada para editar. Modifica y guarda.', 'info');
+        // Switch to sales tab
+        this.switchTab('ventas');
+    }
+
     completeSale() {
         if (this.cart.length === 0) return;
-
         const finalItems = [];
         let error = false;
-
         // Verify stock limit on checkout
         this.cart.forEach(cartItem => {
             const productIndex = this.products.findIndex(p => p.id === cartItem.id);
@@ -857,9 +1059,7 @@ class InventoryApp {
                 error = true;
             }
         });
-
         if (error) return;
-
         // Deduct quantities and build final invoice products
         this.cart.forEach(cartItem => {
             const productIndex = this.products.findIndex(p => p.id === cartItem.id);
@@ -872,41 +1072,36 @@ class InventoryApp {
                 id: cartItem.id,
                 name: cartItem.name,
                 price: cartItem.price,
-                cost: itemCost, // Historic cost saved
+                cost: itemCost,
                 qty: cartItem.qty
             });
         });
-
-        let subtotal = 0;
+        let total = 0;
         finalItems.forEach(item => {
-            subtotal += item.price * item.qty;
+            total += item.price * item.qty;
         });
-        const tax = subtotal * 0.16;
-        const total = subtotal + tax;
-        const paymentMethod = document.getElementById('payment-method').value;
-
+        const paymentMethod = 'Efectivo';
         // Create Sale
         const newSale = {
             id: 'V-' + Date.now(),
             timestamp: new Date().toISOString(),
             items: finalItems,
-            subtotal,
-            tax,
+            subtotal: total,
+            tax: 0,
             total,
             paymentMethod
         };
-
+        // If editing, remove old sale first
+        if (this.editingSaleId) {
+            this.sales = this.sales.filter(s => s.id !== this.editingSaleId);
+            this.editingSaleId = null;
+        }
         this.sales.push(newSale);
         this.saveProducts();
         this.saveSales();
-
-        // Show Invoice Receipt Modal
-        this.showSaleDetail(newSale.id);
-
-        // Reset
-        this.cart = [];
+        this.clearCart();
         this.renderAll();
-        this.showToast('Venta facturada y guardada', 'success');
+        this.showToast('Venta registrada', 'success');
     }
 
     // --- SALES HISTORY LOG ---
@@ -945,9 +1140,17 @@ class InventoryApp {
                     <td>${sale.paymentMethod || 'Efectivo'}</td>
                     <td><strong>${this.formatMoney(sale.total)}</strong></td>
                     <td>
-                        <button class="btn btn-outline btn-sm" onclick="app.showSaleDetail('${sale.id}')">
-                            <i data-lucide="receipt"></i> Detalle
-                        </button>
+                        <div class="btn-action-group">
+                            <button class="btn btn-outline btn-sm" onclick="app.showSaleDetail('${sale.id}')">
+                                <i data-lucide="receipt"></i> Detalle
+                            </button>
+                            <button class="btn btn-sm" style="background:var(--primary-light);color:var(--primary);border:1px solid var(--primary);" onclick="app.editSale('${sale.id}')" title="Editar venta">
+                                <i data-lucide="edit-2"></i> Editar
+                            </button>
+                            <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--danger);" onclick="app.deleteSale('${sale.id}')" title="Eliminar venta">
+                                <i data-lucide="trash-2"></i> Eliminar
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -956,6 +1159,32 @@ class InventoryApp {
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
+    }
+
+    deleteSale(saleId) {
+        const sale = this.sales.find(s => s.id === saleId);
+        if (!sale) return;
+
+        const fecha = new Date(sale.timestamp).toLocaleDateString();
+        const totalStr = this.formatMoney(sale.total);
+
+        if (!confirm(`¿Eliminar la venta del ${fecha} por ${totalStr}?\n\nEl stock de los productos se devolverá al inventario.`)) return;
+
+        // Restore stock for each item in the deleted sale
+        sale.items.forEach(item => {
+            const productIndex = this.products.findIndex(p => p.id === item.id);
+            if (productIndex !== -1) {
+                this.products[productIndex].stock += item.qty;
+            }
+        });
+
+        // Remove the sale from the list
+        this.sales = this.sales.filter(s => s.id !== saleId);
+
+        this.saveProducts();
+        this.saveSales();
+        this.renderAll();
+        this.showToast('Venta eliminada y stock restaurado', 'success');
     }
 
     showSaleDetail(saleId) {
@@ -1109,7 +1338,20 @@ class InventoryApp {
             });
         }, 3000);
     }
+
+    getInitials(name) {
+        if (!name) return 'PROD';
+        const stopwords = ['de', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'con', 'sin', 'para', 'por', 'y', 'a', 'en', 'o', 'u'];
+        const words = name.trim().split(/\s+/);
+        const initials = words
+            .filter(w => !stopwords.includes(w.toLowerCase()))
+            .map(w => w.charAt(0))
+            .join('')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '');
+        return initials || 'PROD';
+    }
 }
 
 // Instantiate App globally
-const app = new InventoryApp();
+window.app = new InventoryApp();
