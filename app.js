@@ -40,6 +40,17 @@ class InventoryApp {
         }
     }
 
+    // --- CURRENCY FORMATTING UTILITY ---
+
+    formatMoney(value) {
+        const parsed = parseFloat(value) || 0;
+        // Formats as e.g. $10.000 for integers, or $129,99 for decimals
+        return '$' + new Intl.NumberFormat('es-CO', {
+            minimumFractionDigits: parsed % 1 === 0 ? 0 : 2,
+            maximumFractionDigits: 2
+        }).format(parsed);
+    }
+
     // --- DATA HANDLING & PERSISTENCE ---
 
     loadData() {
@@ -323,8 +334,8 @@ class InventoryApp {
         });
 
         // Bind dashboard values
-        document.getElementById('stat-ingresos').innerText = `$${ingresosTotales.toFixed(2)}`;
-        document.getElementById('stat-ganancia').innerText = `$${gananciaNeta.toFixed(2)}`;
+        document.getElementById('stat-ingresos').innerText = this.formatMoney(ingresosTotales);
+        document.getElementById('stat-ganancia').innerText = this.formatMoney(gananciaNeta);
         document.getElementById('stat-ganancia-margin').innerText = `${margenPromedio.toFixed(1)}% Margen prom.`;
         document.getElementById('stat-ventas').innerText = filteredSales.length;
         document.getElementById('stat-total-stock').innerText = totalUnidadesStock;
@@ -390,7 +401,7 @@ class InventoryApp {
                 <div class="top-product-item">
                     <div class="top-product-info">
                         <span>${item.name}</span>
-                        <span class="top-product-sales">${item.qty} uds <span class="muted-text">($${item.revenue.toFixed(2)})</span></span>
+                        <span class="top-product-sales">${item.qty} uds <span class="muted-text">(${this.formatMoney(item.revenue)})</span></span>
                     </div>
                     <div class="progress-bar-container">
                         <div class="progress-bar" style="width: ${percentage}%"></div>
@@ -423,7 +434,7 @@ class InventoryApp {
                     <td><strong>#${sale.id.split('-')[1].substring(4)}</strong></td>
                     <td>${formattedDate}</td>
                     <td class="text-truncate" style="max-width: 140px;">${itemsSummary}</td>
-                    <td><span class="badge badge-success">$${sale.total.toFixed(2)}</span></td>
+                    <td><span class="badge badge-success">${this.formatMoney(sale.total)}</span></td>
                 </tr>
             `;
         }).join('');
@@ -470,9 +481,9 @@ class InventoryApp {
         const valPriceEl = document.getElementById('val-total-venta');
         const valProfitEl = document.getElementById('val-total-ganancia');
 
-        if (valCostEl) valCostEl.innerText = `$${totalValCost.toFixed(2)}`;
-        if (valPriceEl) valPriceEl.innerText = `$${totalValPrice.toFixed(2)}`;
-        if (valProfitEl) valProfitEl.innerText = `$${totalValProfit.toFixed(2)}`;
+        if (valCostEl) valCostEl.innerText = this.formatMoney(totalValCost);
+        if (valPriceEl) valPriceEl.innerText = this.formatMoney(totalValPrice);
+        if (valProfitEl) valProfitEl.innerText = this.formatMoney(totalValProfit);
 
         // 2. Render Products list table rows
         if (filteredProducts.length === 0) {
@@ -512,14 +523,14 @@ class InventoryApp {
                     </td>
                     <td>${p.category || 'General'}</td>
                     <td>
-                        <span class="muted-text" style="font-size:0.75rem;">Compra:</span> $${costVal.toFixed(2)}<br>
-                        <span class="muted-text" style="font-size:0.75rem;">Venta:</span> <strong>$${priceVal.toFixed(2)}</strong>
+                        <span class="muted-text" style="font-size:0.75rem;">Compra:</span> ${this.formatMoney(costVal)}<br>
+                        <span class="muted-text" style="font-size:0.75rem;">Venta:</span> <strong>${this.formatMoney(priceVal)}</strong>
                     </td>
                     <td>
                         <span style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">
                             ${margin.toFixed(1)}%
                         </span><br>
-                        <span class="muted-text" style="font-size:0.75rem;">+$${profit.toFixed(2)}</span>
+                        <span class="muted-text" style="font-size:0.75rem;">+${this.formatMoney(profit)}</span>
                     </td>
                     <td><strong>${p.stock}</strong> unidades</td>
                     <td><span class="badge ${badgeClass}">${statusText}</span></td>
@@ -678,7 +689,7 @@ class InventoryApp {
                      onclick="${isOutOfStock ? '' : `app.addToCart('${p.id}')`}">
                     <span class="picker-category">${p.category || 'General'}</span>
                     <span class="picker-name" title="${p.name}">${p.name}</span>
-                    <span class="picker-price">$${parseFloat(p.price).toFixed(2)}</span>
+                    <span class="picker-price">${this.formatMoney(p.price)}</span>
                     <span class="picker-stock ${stockClass}">${stockText}</span>
                 </div>
             `;
@@ -728,9 +739,9 @@ class InventoryApp {
                     <span class="muted-text">Agrega productos desde el panel de la derecha</span>
                 </div>
             `;
-            document.getElementById('cart-subtotal').innerText = '$0.00';
-            document.getElementById('cart-tax').innerText = '$0.00';
-            document.getElementById('cart-total').innerText = '$0.00';
+            document.getElementById('cart-subtotal').innerText = this.formatMoney(0);
+            document.getElementById('cart-tax').innerText = this.formatMoney(0);
+            document.getElementById('cart-total').innerText = this.formatMoney(0);
             document.getElementById('btn-complete-sale').disabled = true;
 
             if (typeof lucide !== 'undefined') {
@@ -748,7 +759,7 @@ class InventoryApp {
                 <div class="cart-item">
                     <div class="cart-item-details">
                         <span class="cart-item-name">${item.name}</span>
-                        <span class="cart-item-price">$${item.price.toFixed(2)} c/u</span>
+                        <span class="cart-item-price">${this.formatMoney(item.price)} c/u</span>
                     </div>
                     <div class="cart-item-qty">
                         <button class="btn-action" onclick="app.updateCartQty('${item.id}', ${item.qty - 1})">
@@ -761,7 +772,7 @@ class InventoryApp {
                             <i data-lucide="plus"></i>
                         </button>
                     </div>
-                    <div class="cart-item-total">$${itemTotal.toFixed(2)}</div>
+                    <div class="cart-item-total">${this.formatMoney(itemTotal)}</div>
                     <button class="btn-action delete" onclick="app.removeFromCart('${item.id}')" title="Quitar">
                         <i data-lucide="trash-2"></i>
                     </button>
@@ -778,9 +789,9 @@ class InventoryApp {
         const tax = subtotal * 0.16;
         const total = subtotal + tax;
 
-        document.getElementById('cart-subtotal').innerText = `$${subtotal.toFixed(2)}`;
-        document.getElementById('cart-tax').innerText = `$${tax.toFixed(2)}`;
-        document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
+        document.getElementById('cart-subtotal').innerText = this.formatMoney(subtotal);
+        document.getElementById('cart-tax').innerText = this.formatMoney(tax);
+        document.getElementById('cart-total').innerText = this.formatMoney(total);
         document.getElementById('btn-complete-sale').disabled = false;
 
         if (typeof lucide !== 'undefined') {
@@ -852,7 +863,7 @@ class InventoryApp {
         // Deduct quantities and build final invoice products
         this.cart.forEach(cartItem => {
             const productIndex = this.products.findIndex(p => p.id === cartItem.id);
-            let itemCost = cartItem.price * 0.6; // Fallback
+            let itemCost = cartItem.price * 0.6; // Default fallback
             if (productIndex !== -1) {
                 this.products[productIndex].stock -= cartItem.qty;
                 itemCost = parseFloat(this.products[productIndex].cost !== undefined ? this.products[productIndex].cost : cartItem.price * 0.6);
@@ -932,7 +943,7 @@ class InventoryApp {
                         ${itemsStr}
                     </td>
                     <td>${sale.paymentMethod || 'Efectivo'}</td>
-                    <td><strong>$${sale.total.toFixed(2)}</strong></td>
+                    <td><strong>${this.formatMoney(sale.total)}</strong></td>
                     <td>
                         <button class="btn btn-outline btn-sm" onclick="app.showSaleDetail('${sale.id}')">
                             <i data-lucide="receipt"></i> Detalle
@@ -956,9 +967,9 @@ class InventoryApp {
         
         document.getElementById('receipt-id').innerText = `#VENTA-${saleId.split('-')[1]}`;
         document.getElementById('receipt-date').innerText = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        document.getElementById('receipt-subtotal').innerText = `$${sale.subtotal.toFixed(2)}`;
-        document.getElementById('receipt-tax').innerText = `$${sale.tax.toFixed(2)}`;
-        document.getElementById('receipt-total').innerText = `$${sale.total.toFixed(2)}`;
+        document.getElementById('receipt-subtotal').innerText = this.formatMoney(sale.subtotal);
+        document.getElementById('receipt-tax').innerText = this.formatMoney(sale.tax);
+        document.getElementById('receipt-total').innerText = this.formatMoney(sale.total);
         document.getElementById('receipt-payment-method').innerText = sale.paymentMethod || 'Efectivo';
 
         // Render receipt items
@@ -966,7 +977,7 @@ class InventoryApp {
         itemsContainer.innerHTML = sale.items.map(item => `
             <div class="receipt-item-row">
                 <span>${item.qty}x ${item.name}</span>
-                <span>$${(item.price * item.qty).toFixed(2)}</span>
+                <span>${this.formatMoney(item.price * item.qty)}</span>
             </div>
         `).join('');
 
